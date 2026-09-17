@@ -4,21 +4,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { advance, levelFor, mergeHit, scoreEvidence } from "./risk";
 import type { CallScript, EvidenceEntry, RiskLevel, TacticHit, TacticId, TranscriptLine } from "./types";
 
+export type AnalyzerMode = "local" | "live" | "fallback" | null;
+
 /** Always goes through the server route, so SENTINEL_MODE=live (Bedrock)
  *  vs. local rule-based detection is a server-side switch the client never
- *  needs to know about. */
-async function analyze(line: TranscriptLine): Promise<TacticHit[]> {
+ *  needs to know about. The reported mode reflects what the server actually
+ *  did — including a live call that failed and fell back — not a static flag. */
+async function analyze(line: TranscriptLine): Promise<{ hits: TacticHit[]; mode: AnalyzerMode }> {
   try {
     const res = await fetch("/api/analyze", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(line),
     });
-    if (!res.ok) return [];
+    if (!res.ok) return { hits: [], mode: null };
     const data = await res.json();
-    return data.hits ?? [];
+    return { hits: data.hits ?? [], mode: data.mode ?? null };
   } catch {
-    return [];
+    return { hits: [], mode: null };
   }
 }
 
@@ -35,6 +38,7 @@ export interface DirectorState {
   ledger: EvidenceEntry[];
   risk: number;
   level: RiskLevel;
+  mode: AnalyzerMode;
   play: (script: CallScript) => void;
   reset: () => void;
 }
@@ -44,6 +48,7 @@ export function useDirector(): DirectorState {
   const [lines, setLines] = useState<TranscriptLine[]>([]);
   const [ledgerVersion, setLedgerVersion] = useState(0);
   const [risk, setRisk] = useState(0);
+  const [mode, setMode] = useState<AnalyzerMode>(null);
 
   const ledgerRef = useRef(new Map<TacticId, EvidenceEntry>());
   const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -80,9 +85,10 @@ export function useDirector(): DirectorState {
       for (const line of script.lines) {
         const t = setTimeout(() => {
           setLines((prev) => [...prev, line]);
-          analyze(line).then((hits) => {
+          analyze(line).then(({ hits, mode: reportedMode }) => {
             if (generation.current !== myGeneration) return; // stale, a reset happened
             for (const hit of hits) mergeHit(ledgerRef.current, hit.tactic, hit.phrase, hit.weight);
+            setMode(reportedMode);
             setLedgerVersion((v) => v + 1);
           });
         }, line.atMs / PACE);
@@ -125,6 +131,7 @@ export function useDirector(): DirectorState {
     ledger: Array.from(ledgerRef.current.values()),
     risk,
     level: levelFor(risk),
+    mode,
     play,
     reset,
   };

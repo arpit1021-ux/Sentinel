@@ -20,6 +20,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ hits, mode: "live" });
     } catch (err) {
       console.error("[analyze] Bedrock call failed, falling back to local:", err);
+      const hits = analyzeLine(line);
+      return NextResponse.json({ hits, mode: "fallback" });
     }
   }
 
