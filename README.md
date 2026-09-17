@@ -34,22 +34,47 @@ check — it should stay green.
 
 ## Where AWS fits
 
-- `/api/analyze` currently wraps a local rule-based tactic detector. It's
-  the seam for Amazon Bedrock — swap the body of this route to classify each
-  transcript line against the same fixed taxonomy instead of regex.
-- `/api/alert` is a stub for Amazon SNS — publishing to a topic that reaches
-  the trusted contact by SMS.
-- Amazon Polly is the planned voice for the spoken warning.
+- `/api/analyze` calls `analyzeLineWithBedrock` (Amazon Bedrock, Nova Lite)
+  when `SENTINEL_MODE=live`; otherwise, and on any Bedrock error, it falls
+  back to the local rule-based detector — a live outage never breaks the
+  console mid-demo. The model classifies each caller line against the exact
+  same fixed taxonomy the rules use, and its output is rejected if it
+  invents a tactic id or a phrase that isn't a verbatim substring of the
+  line — see `src/lib/aws/bedrock.ts`.
+- `/api/alert` calls Amazon SNS (`sns:Publish` directly to a phone number,
+  no topic) when `SENTINEL_MODE=live` and `ALERT_PHONE_NUMBER` is set;
+  otherwise it just logs. See `src/lib/aws/sns.ts`.
+- Amazon Polly (spoken warning) is not wired yet.
 
-AWS SDK clients (`@aws-sdk/client-bedrock-runtime`, `-polly`, `-sns`) are
-already dependencies; credentials live only in route handlers via
-environment variables, never in the browser.
+Nothing above runs by default — `SENTINEL_MODE` unset keeps everything
+local/mock, and no AWS call happens without deliberately opting in.
+
+### Running with real AWS credentials
+
+No long-lived IAM access keys are used for this project. Local credentials
+come from a browser-based `aws login` session, refreshed with:
+
+```bash
+eval "$(aws configure export-credentials --format env)"   # mints short-lived creds into this shell
+SENTINEL_MODE=live npm run dev
+```
+
+For any real deployment, the plan is an IAM role scoped to exactly
+`bedrock:InvokeModel`, `sns:Publish`, and (later) `polly:SynthesizeSpeech` —
+not a user with static keys.
+
+**Current blocker:** Bedrock `InvokeModel` on this account returns
+`AccessDeniedException: Your account is currently being verified` — a
+temporary AWS-side identity-verification hold, unrelated to the code. Live
+mode is written and ready; it hasn't been exercised end-to-end yet because
+of this.
 
 ## Status (updated as the event runs)
 
 - [x] Sept 18 — core detection loop + console UI working locally
-- [ ] Amazon Bedrock wired into `/api/analyze`
-- [ ] Amazon SNS wired into `/api/alert`
+- [x] Sept 18 — Amazon Bedrock + SNS live paths written, gated behind `SENTINEL_MODE=live`, with local fallback
+- [ ] Bedrock path exercised for real (blocked on account verification)
+- [ ] SNS SMS delivery confirmed (India numbers need DLT registration — see `.env.local.example`)
 - [ ] Amazon Polly spoken warning
 - [ ] Deployed to AWS
 - [ ] 3-minute demo video
@@ -65,5 +90,7 @@ environment variables, never in the browser.
 | `src/lib/sentinel/scripts.ts` | Demo call scripts (one scam, one benign) |
 | `src/lib/sentinel/analyzer.ts` | Local rule-based analyzer |
 | `src/lib/sentinel/useDirector.ts` | Playback + risk state machine (client hook) |
+| `src/lib/aws/bedrock.ts` | Live tactic classification via Bedrock, validated against the taxonomy |
+| `src/lib/aws/sns.ts` | Trusted-contact SMS alert |
 | `src/components/` | RiskMeter, TacticChips, CircuitBreak |
-| `src/app/api/analyze`, `/api/alert` | Server routes — the AWS seam |
+| `src/app/api/analyze`, `/api/alert` | Server routes — local/live switch on `SENTINEL_MODE` |

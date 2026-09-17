@@ -1,9 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { analyzeLine } from "./analyzer";
 import { advance, levelFor, mergeHit, scoreEvidence } from "./risk";
-import type { CallScript, EvidenceEntry, RiskLevel, TacticId, TranscriptLine } from "./types";
+import type { CallScript, EvidenceEntry, RiskLevel, TacticHit, TacticId, TranscriptLine } from "./types";
+
+/** Always goes through the server route, so SENTINEL_MODE=live (Bedrock)
+ *  vs. local rule-based detection is a server-side switch the client never
+ *  needs to know about. */
+async function analyze(line: TranscriptLine): Promise<TacticHit[]> {
+  try {
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(line),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.hits ?? [];
+  } catch {
+    return [];
+  }
+}
 
 /** Demo lines arrive this many times faster than their authored timestamps,
  *  so a ~40s script plays out in ~10s. */
@@ -32,6 +49,9 @@ export function useDirector(): DirectorState {
   const timeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
   const tickInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastTick = useRef(0);
+  /** Bumped on every play/reset so an in-flight analyze() from a previous
+   *  run can't merge stale evidence into the current one. */
+  const generation = useRef(0);
 
   const clearTimers = useCallback(() => {
     timeouts.current.forEach(clearTimeout);
@@ -42,6 +62,7 @@ export function useDirector(): DirectorState {
 
   const reset = useCallback(() => {
     clearTimers();
+    generation.current += 1;
     ledgerRef.current = new Map();
     setLedgerVersion((v) => v + 1);
     setLines([]);
@@ -54,14 +75,16 @@ export function useDirector(): DirectorState {
       reset();
       setPhase("playing");
       lastTick.current = performance.now();
+      const myGeneration = generation.current;
 
       for (const line of script.lines) {
         const t = setTimeout(() => {
           setLines((prev) => [...prev, line]);
-          for (const hit of analyzeLine(line)) {
-            mergeHit(ledgerRef.current, hit.tactic, hit.phrase, hit.weight);
-          }
-          setLedgerVersion((v) => v + 1);
+          analyze(line).then((hits) => {
+            if (generation.current !== myGeneration) return; // stale, a reset happened
+            for (const hit of hits) mergeHit(ledgerRef.current, hit.tactic, hit.phrase, hit.weight);
+            setLedgerVersion((v) => v + 1);
+          });
         }, line.atMs / PACE);
         timeouts.current.push(t);
       }
