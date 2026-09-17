@@ -1,0 +1,26 @@
+{
+  "name": "sentinel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SENTINEL — real-time scam call interception. Built for First Commit (Bharat Builds Tour x AWS).",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.700.0",
+    "@aws-sdk/client-polly": "^3.700.0",
+    "@aws-sdk/client-sns": "^3.700.0",
+    "next": "^15.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.6.3"
+  }
+}
