@@ -1,4 +1,4 @@
-import type { TacticId } from "./types";
+import type { TacticId } from "./types.ts";
 
 /**
  * The tactic vocabulary is fixed and human-authored on purpose: the console

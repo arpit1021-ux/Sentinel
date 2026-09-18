@@ -30,7 +30,22 @@ npm run typecheck
 
 Click **Play scam call** to watch the tactic chips accumulate and the risk
 meter climb to the circuit breaker. **Play benign call** is the false-positive
-check — it should stay green.
+check — it should stay green. Set a trusted contact's number first (rail,
+bottom) so the circuit breaker's alert button has somewhere real to send to.
+
+```bash
+npm test             # detection-core unit tests, no server needed
+```
+
+## Trusted contact
+
+The circuit breaker's "alert my trusted contact" only means something if the
+app knows who to alert, and that can't be one number baked into the
+deployment — every user has someone different to call. Each browser stores
+its own number (`localStorage`, validated E.164 format) via the "Trusted
+contact" panel, and it's sent with the alert request. `ALERT_PHONE_NUMBER`
+in the environment is only a fallback for a single-user deployment; a
+per-browser contact always takes precedence.
 
 ## Where AWS fits
 
@@ -44,7 +59,9 @@ check — it should stay green.
 - `/api/alert` calls Amazon SNS (`sns:Publish` directly to a phone number,
   no topic) when `SENTINEL_MODE=live` and `ALERT_PHONE_NUMBER` is set;
   otherwise it just logs. See `src/lib/aws/sns.ts`.
-- Amazon Polly (spoken warning) is not wired yet.
+- Amazon Polly (spoken warning) is intentionally not built — it would sit
+  unused behind the same live/local switch as everything else, so it's
+  deferred rather than shipped as a dependency nothing calls.
 
 Nothing above runs by default — `SENTINEL_MODE` unset keeps everything
 local/mock, and no AWS call happens without deliberately opting in.
@@ -73,6 +90,8 @@ of this.
 
 - [x] Sept 18 — core detection loop + console UI working locally
 - [x] Sept 18 — Amazon Bedrock + SNS live paths written, gated behind `SENTINEL_MODE=live`, with local fallback
+- [x] Sept 18 — UI redesign (typography, color system, real component states) + trusted-contact setup
+- [x] Sept 19 — unit tests for the risk invariant and the detector; `noUnusedLocals`/`noUnusedParameters` on; removed the unused Polly dependency
 - [ ] Bedrock path exercised for real (blocked on account verification)
 - [ ] SNS SMS delivery confirmed (India numbers need DLT registration — see `.env.local.example`)
 - [ ] Amazon Polly spoken warning
@@ -90,7 +109,9 @@ of this.
 | `src/lib/sentinel/scripts.ts` | Demo call scripts (one scam, one benign) |
 | `src/lib/sentinel/analyzer.ts` | Local rule-based analyzer |
 | `src/lib/sentinel/useDirector.ts` | Playback + risk state machine (client hook) |
+| `src/lib/sentinel/useTrustedContact.ts` | Per-browser trusted-contact phone number (localStorage, validated) |
 | `src/lib/aws/bedrock.ts` | Live tactic classification via Bedrock, validated against the taxonomy |
 | `src/lib/aws/sns.ts` | Trusted-contact SMS alert |
-| `src/components/` | RiskMeter, TacticChips, CircuitBreak |
+| `src/components/` | RiskMeter, TacticChips, CircuitBreak, TrustedContact, TryLine, Button |
 | `src/app/api/analyze`, `/api/alert` | Server routes — local/live switch on `SENTINEL_MODE` |
+| `tests/` | Node's built-in test runner, no build step — the risk invariant and the detector's word-boundary/speaker-attribution rules |

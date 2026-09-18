@@ -1,5 +1,5 @@
-import { scanForTactics } from "./taxonomy";
-import type { TacticHit, TranscriptLine } from "./types";
+import { scanForTactics } from "./taxonomy.ts";
+import type { TacticHit, TranscriptLine } from "./types.ts";
 
 /**
  * Rule-based local analyzer. This is the seam: `/api/analyze` wraps this

@@ -9,11 +9,13 @@ export function CircuitBreak({
   onDismiss,
   onAlert,
   alertStatus,
+  hasContact,
 }: {
   ledger: EvidenceEntry[];
   onDismiss: () => void;
   onAlert: () => void;
   alertStatus: AlertStatus;
+  hasContact: boolean;
 }) {
   const strongest = [...ledger].sort((a, b) => b.maxWeight - a.maxWeight)[0];
   const reason = strongest ? tacticById(strongest.tactic).meaning : "Multiple manipulation tactics detected.";
@@ -31,13 +33,18 @@ export function CircuitBreak({
             variant="danger"
             onClick={onAlert}
             loading={alertStatus === "sending"}
-            disabled={alertStatus === "sent"}
+            disabled={!hasContact || alertStatus === "sent"}
           >
             {alertStatus === "sent" ? "Trusted contact notified" : "Alert my trusted contact"}
           </Button>
           <Button onClick={onDismiss}>Dismiss</Button>
         </div>
 
+        {!hasContact && (
+          <p className="alert-error">
+            No trusted contact set up yet — add one in the console below, then this will actually reach someone.
+          </p>
+        )}
         {alertStatus === "failed" && (
           <p className="alert-error">Alert didn't go through. Try again, or call them directly.</p>
         )}

@@ -1,4 +1,4 @@
-import type { CallScript } from "./types";
+import type { CallScript } from "./types.ts";
 
 export const SCAM_CALL: CallScript = {
   id: "scam-electricity",

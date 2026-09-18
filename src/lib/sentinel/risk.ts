@@ -1,5 +1,5 @@
-import { TACTICS, tacticById } from "./taxonomy";
-import type { EvidenceEntry, RiskLevel, TacticId } from "./types";
+import { TACTICS, tacticById } from "./taxonomy.ts";
+import type { EvidenceEntry, RiskLevel, TacticId } from "./types.ts";
 
 export const THRESHOLDS = { watch: 0.3, warning: 0.6, critical: 0.85 } as const;
 

@@ -6,10 +6,12 @@ import { CircuitBreak, type AlertStatus } from "@/components/CircuitBreak";
 import { RiskMeter } from "@/components/RiskMeter";
 import { TacticChips } from "@/components/TacticChips";
 import { TryLine } from "@/components/TryLine";
+import { TrustedContact } from "@/components/TrustedContact";
 import { levelWord } from "@/lib/sentinel/risk";
-import { BENIGN_CALL, SCAM_CALL } from "@/lib/sentinel/scripts";
+import { CALL_SCRIPTS } from "@/lib/sentinel/scripts";
 import type { CallScript } from "@/lib/sentinel/types";
 import { useDirector } from "@/lib/sentinel/useDirector";
+import { useTrustedContact } from "@/lib/sentinel/useTrustedContact";
 
 const MODE_TEXT: Record<string, string> = {
   local: "detection: local",
@@ -19,6 +21,7 @@ const MODE_TEXT: Record<string, string> = {
 
 export default function Home() {
   const director = useDirector();
+  const contact = useTrustedContact();
   const [alertStatus, setAlertStatus] = useState<AlertStatus>("idle");
 
   async function sendAlert() {
@@ -27,7 +30,10 @@ export default function Home() {
       const res = await fetch("/api/alert", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tactics: director.ledger.map((e) => e.tactic) }),
+        body: JSON.stringify({
+          tactics: director.ledger.map((e) => e.tactic),
+          phoneNumber: contact.phone,
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -60,12 +66,16 @@ export default function Home() {
       </div>
 
       <div className="controls">
-        <Button variant="accent" onClick={() => playAndResetAlert(SCAM_CALL)} disabled={isPlaying}>
-          Play scam call
-        </Button>
-        <Button onClick={() => playAndResetAlert(BENIGN_CALL)} disabled={isPlaying}>
-          Play benign call
-        </Button>
+        {CALL_SCRIPTS.map((script) => (
+          <Button
+            key={script.id}
+            variant={script.groundTruth === "scam" ? "accent" : "default"}
+            onClick={() => playAndResetAlert(script)}
+            disabled={isPlaying}
+          >
+            {script.label}
+          </Button>
+        ))}
         <Button onClick={director.reset} disabled={director.phase === "idle"}>
           Reset
         </Button>
@@ -111,6 +121,15 @@ export default function Home() {
 
           <div className="rail-section">
             <div className="panel-head">
+              <span className="label">Trusted contact</span>
+            </div>
+            <div className="rail-body">
+              <TrustedContact />
+            </div>
+          </div>
+
+          <div className="rail-section">
+            <div className="panel-head">
               <span className="label">Test a line</span>
             </div>
             <div className="rail-body">
@@ -126,6 +145,7 @@ export default function Home() {
           onDismiss={director.reset}
           onAlert={sendAlert}
           alertStatus={alertStatus}
+          hasContact={!!contact.phone}
         />
       )}
     </div>

@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { advance, levelFor, mergeHit, scoreEvidence } from "./risk";
-import type { CallScript, EvidenceEntry, RiskLevel, TacticHit, TacticId, TranscriptLine } from "./types";
+import { advance, levelFor, mergeHit, scoreEvidence } from "./risk.ts";
+import type { CallScript, EvidenceEntry, RiskLevel, TacticHit, TacticId, TranscriptLine } from "./types.ts";
 
 export type AnalyzerMode = "local" | "live" | "fallback" | null;
 
